@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Eco Hero — Water Saver Defender</title>
+  <style>
+    /* --- RESET + LAYOUT --- */
+    :root{
+      --bg:#0b2545; /* deep blue */
+      --panel:#07213a;
+      --accent:#43c6ac; /* teal */
+      --danger:#ff6b6b;
+      --muted:#9fb3c8;
+      --glass: rgba(255,255,255,0.06);
+      --max-width:900px;
+      --ui-size:14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{background:linear-gradient(180deg,var(--bg),#052033);color:#e9f6f2;display:flex;align-items:center;justify-content:center;padding:20px}
+    .wrap{width:100%;max-width:var(--max-width);display:grid;grid-template-columns:1fr 320px;gap:18px}
+    @media (max-width:980px){.wrap{grid-template-columns:1fr}}
+
+    /* --- GAME PANEL --- */
+    .game-card{background:linear-gradient(180deg,var(--panel),#0a2a3e);border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,0.5);}
+    .canvas-wrap{position:relative;border-radius:8px;background:linear-gradient(180deg,#0c3750 0%,#08304a 100%);overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+    canvas{display:block;width:100%;height:560px;max-height:65vh;background:transparent}
+
+    /* --- UI RIGHT PANEL --- */
+    .side{background:var(--panel);padding:12px;border-radius:12px;height:100%;display:flex;flex-direction:column;gap:12px}
+    .panel-row{display:flex;justify-content:space-between;align-items:center}
+    h1{font-size:18px;margin:0}
+    .muted{color:var(--muted);font-size:13px}
+    .stat{background:var(--glass);padding:8px;border-radius:8px;text-align:center}
+    .big{font-size:22px;font-weight:700}
+    .controls{display:flex;gap:8px}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px;color:inherit;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--accent),#2fbfa0);border:none;color:#04231d}
+    .footer{margin-top:auto;font-size:12px;color:var(--muted)}
+
+    /* --- MOBILE TOUCH CONTROLS --- */
+    .touch-controls{display:none;gap:8px}
+    .touch-controls button{flex:1;padding:12px;border-radius:8px}
+    @media (max-width:980px){.touch-controls{display:flex}} 
+
+    /* --- TIPS --- */
+    .tips{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:8px;border-radius:8px;font-size:13px}
+
+    /* --- small helpers --- */
+    .center{display:flex;align-items:center;justify-content:center}
+    .hint{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="game-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <h1>Eco Hero — Water Saver Defender</h1>
+          <div class="muted">Collect clean water drops • Avoid waste • Save the planet!</div>
+        </div>
+        <div class="muted hint">Use ← → or A D to move · Tap on mobile</div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="game" width="900" height="560"></canvas>
+      </div>
+
+      <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+        <button id="startBtn" class="primary">Start / Restart</button>
+        <button id="pauseBtn">Pause</button>
+        <div class="hint" style="margin-left:auto">Level: <span id="levelDisp">1</span></div>
+      </div>
+
+      <div class="touch-controls" style="margin-top:10px">
+        <button id="leftTouch">◀</button>
+        <button id="jumpTouch">▲ Jump</button>
+        <button id="rightTouch">▶</button>
+      </div>
+
+    </section>
+
+    <aside class="side">
+      <div class="panel-row">
+        <div>
+          <div class="muted">Score</div>
+          <div class="stat big" id="scoreDisp">0</div>
+        </div>
+        <div>
+          <div class="muted">High Score</div>
+          <div class="stat big" id="hiDisp">0</div>
+        </div>
+      </div>
+
+      <div class="panel-row">
+        <div>
+          <div class="muted">Water Collected</div>
+          <div class="stat" id="collectedDisp">0</div>
+        </div>
+        <div>
+          <div class="muted">Lives</div>
+          <div class="stat" id="livesDisp">3</div>
+        </div>
+      </div>
+
+      <div class="tips">
+        <strong>How to play</strong>
+        <ul style="margin:8px 0 0 16px;padding:0;line-height:1.45;color:var(--muted)">
+          <li>Move left/right to catch the falling water drops.</li>
+          <li>Avoid red waste icons — hitting them costs a life.</li>
+          <li>Collect power-ups to briefly slow drops or double points.</li>
+        </ul>
+      </div>
+
+      <div>
+        <strong>Progress</strong>
+        <div id="progressBar" style="height:10px;background:rgba(255,255,255,0.04);border-radius:6px;margin-top:8px;overflow:hidden">
+          <div id="progressFill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#6ef3d4)"></div>
+        </div>
+        <div class="muted" style="margin-top:6px">Next level at <span id="nextLevelScore">50</span> points</div>
+      </div>
+
+      <div>
+        <strong>Controls</strong>
+        <div class="muted" style="margin-top:6px">Keyboard: ← → or A D • Mobile: touch buttons shown on small screens</div>
+      </div>
+
+      <div class="footer">Made for your final-year project — customize freely. Want help adding sound, more levels, or analytics? Ask me!</div>
+    </aside>
+  </div>
+
+  <script>
+  /* ---------- SIMPLE 2D GAME: Eco Hero Water Saver Defender ----------
+     Single-file HTML/CSS/JS game suitable for project demo. Comments explain parts.
+     Features:
+       - Player moves left/right + jump
+       - Falling water drops (good), waste items (bad), power-ups (slow, double)
+       - Score, levels, lives, progress bar
+       - Mobile touch support & persistent high score
+  */
+
+  (function(){
+    // Canvas setup
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+
+    // DOM elements
+    const scoreDisp = document.getElementById('scoreDisp');
+    const hiDisp = document.getElementById('hiDisp');
+    const collectedDisp = document.getElementById('collectedDisp');
+    const livesDisp = document.getElementById('livesDisp');
+    const progressFill = document.getElementById('progressFill');
+    const levelDisp = document.getElementById('levelDisp');
+    const nextLevelScore = document.getElementById('nextLevelScore');
+
+    // Buttons
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const leftTouch = document.getElementById('leftTouch');
+    const rightTouch = document.getElementById('rightTouch');
+    const jumpTouch = document.getElementById('jumpTouch');
+
+    // Game state
+    let state = 'menu'; // 'running','paused','gameover'
+    let score = 0, hi = 0, collected = 0, lives = 3;
+    let level = 1;
+    let nextLevelAt = 50; // points
+
+    // Entities
+    const player = {x: W/2, y: H-80, w:52, h:60, vx:0, speed:5, onGround:true, vy:0};
+    const gravity = 0.8;
+
+    let entities = []; // falling items
+    let tick = 0;
+    let spawnRate = 60; // lower = faster spawns
+    let dropSpeedBase = 2.2;
+    let slowEffect = 0; // frames remaining
+    let doublePoints = 0;
+
+    // Input
+    const keys = {left:false,right:false,jump:false};
+    function keyDown(e){
+      if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = true;
+      if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
+      if(e.key === ' ' || e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') keys.jump = true;
+      // start/pause shortcuts
+      if(e.key.toLowerCase()==='p') togglePause();
+      if(e.key.toLowerCase()==='r') startGame();
+    }
+    function keyUp(e){
+      if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false;
+      if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false;
+      if(e.key === ' ' || e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') keys.jump = false;
+    }
+    window.addEventListener('keydown',keyDown);
+    window.addEventListener('keyup',keyUp);
+
+    // Touch controls
+    leftTouch.addEventListener('touchstart',(e)=>{e.preventDefault(); keys.left=true});
+    leftTouch.addEventListener('touchend',(e)=>{e.preventDefault(); keys.left=false});
+    rightTouch.addEventListener('touchstart',(e)=>{e.preventDefault(); keys.right=true});
+    rightTouch.addEventListener('touchend',(e)=>{e.preventDefault(); keys.right=false});
+    jumpTouch.addEventListener('touchstart',(e)=>{e.preventDefault(); keys.jump=true; setTimeout(()=>keys.jump=false,150)});
+
+    // Buttons
+    startBtn.addEventListener('click',startGame);
+    pauseBtn.addEventListener('click',togglePause);
+
+    // Load high score
+    try{ hi = parseInt(localStorage.getItem('eco_hi'))||0 }catch(e){hi=0}
+    hiDisp.textContent = hi;
+
+    // UTILITIES
+    function rand(min,max){return Math.random()*(max-min)+min}
+    function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+
+    // ENTITY TYPES: water (good), waste (bad), powerup: slow, double
+    function spawnEntity(){
+      const types = ['water','water','water','waste','power']; // water are more frequent
+      const pick = types[Math.floor(rand(0,types.length))];
+      const x = rand(30, W-30);
+      const size = pick==='power' ? 28 : (pick==='waste' ? 30 : 22 + Math.random()*12);
+      const vy = dropSpeedBase + Math.random()*1.8 + level*0.3;
+      const kind = pick === 'power' ? (Math.random()<0.5?'slow':'double') : pick;
+      entities.push({x,y:-40,vy,size,kind});
+    }
+
+    // COLLISION helper
+    function collide(a,b){
+      return !(a.x+a.w < b.x || a.x > b.x + b.size || a.y + a.h < b.y || a.y > b.y + b.size);
+    }
+
+    // GAME LOGIC
+    function resetGame(){
+      score = 0; collected = 0; lives = 3; level = 1; nextLevelAt = 50; dropSpeedBase = 2.2; spawnRate = 60; entities = []; tick=0; slowEffect=0; doublePoints=0;
+      player.x = W/2; player.y = H-120; player.vx = 0; player.vy=0; player.onGround=true;
+      updateUI();
+    }
+
+    function startGame(){
+      resetGame(); state = 'running'; startBtn.textContent = 'Restart'; pauseBtn.textContent = 'Pause';
+      loop();
+    }
+
+    function togglePause(){
+      if(state === 'running'){ state='paused'; pauseBtn.textContent='Resume' }
+      else if(state === 'paused'){ state='running'; pauseBtn.textContent='Pause'; loop() }
+      else { startGame() }
+    }
+
+    function gameOver(){
+      state='gameover';
+      // store hi score
+      if(score>hi){ hi = score; try{ localStorage.setItem('eco_hi',hi) }catch(e){} hiDisp.textContent = hi }
+      // draw final frame with message
+      draw();
+      ctx.fillStyle='rgba(4,10,18,0.6)'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#fff'; ctx.font='28px Inter, sans-serif'; ctx.textAlign='center';
+      ctx.fillText('Game Over — Eco Hero Defender', W/2, H/2 - 12);
+      ctx.font='16px Inter, sans-serif'; ctx.fillText('Press Start / Restart to try again', W/2, H/2 + 18);
+    }
+
+    function levelUp(){
+      level++;
+      levelDisp.textContent = level;
+      dropSpeedBase += 0.6; // drops get faster
+      spawnRate = Math.max(18, spawnRate - 6); // spawn faster
+      nextLevelAt = Math.floor(nextLevelAt * 1.8);
+      nextLevelScore.textContent = nextLevelAt;
+      // small celebration: push some water entities
+      for(let i=0;i<12;i++) entities.push({x:rand(30,W-30),y:rand(-300,-20),vy: rand(1,3),size:18,kind:'water'});
+    }
+
+    function updateUI(){
+      scoreDisp.textContent = score;
+      collectedDisp.textContent = collected;
+      livesDisp.textContent = lives;
+      progressFill.style.width = clamp((score / nextLevelAt)*100,0,100)+'%';
+    }
+
+    // MAIN LOOP
+    let rafId = null;
+    function loop(){
+      if(state !== 'running') return;
+      update();
+      draw();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function update(){
+      tick++;
+
+      // Spawn logic
+      if(tick % Math.max(4, Math.floor(spawnRate)) === 0){
+        spawnEntity();
+      }
+
+      // Player movement
+      if(keys.left) player.vx = -player.speed;
+      else if(keys.right) player.vx = player.speed;
+      else player.vx = 0;
+
+      // Jump
+      if(keys.jump && player.onGround){ player.vy = -12; player.onGround = false }
+
+      player.x += player.vx;
+      player.vy += gravity; player.y += player.vy;
+      if(player.y + player.h >= H - 12){ player.y = H - 12 - player.h; player.onGround = true; player.vy = 0 }
+      player.x = clamp(player.x, 8, W - player.w - 8);
+
+      // Update entities
+      for(let i=entities.length-1;i>=0;i--){
+        const e = entities[i];
+        const effectiveVy = e.vy * (slowEffect?0.45:1);
+        e.y += effectiveVy;
+
+        // offscreen removal
+        if(e.y > H + 60){ entities.splice(i,1); continue }
+
+        // collision check with player
+        if(collide(player, e)){
+          if(e.kind === 'water'){
+            const pts = doublePoints? 4 : 2;
+            score += pts; collected++; entities.splice(i,1);
+          } else if(e.kind === 'waste'){
+            lives--; entities.splice(i,1);
+            // small penalty
+            score = Math.max(0, score - 6);
+          } else if(e.kind === 'slow'){
+            slowEffect = 600; entities.splice(i,1);
+          } else if(e.kind === 'double'){
+            doublePoints = 600; entities.splice(i,1);
+          }
+        }
+      }
+
+      // decrement power-ups
+      if(slowEffect>0) slowEffect--; if(doublePoints>0) doublePoints--;
+
+      // Level check
+      if(score >= nextLevelAt){ levelUp() }
+
+      // Game over on lives
+      if(lives <= 0){ gameOver(); }
+
+      updateUI();
+    }
+
+    // DRAW
+    function draw(){
+      // background
+      ctx.clearRect(0,0,W,H);
+      // simple gradient sky
+      const g = ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,'#0a3b60'); g.addColorStop(1,'#042033');
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+      // decorative waves / ground
+      ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(0,H-12,W,12);
+
+      // draw entities
+      entities.forEach(e=>{
+        if(e.kind === 'water') drawWater(e.x,e.y,e.size);
+        else if(e.kind === 'waste') drawWaste(e.x,e.y,e.size);
+        else if(e.kind === 'slow') drawPower(e.x,e.y,e.size,'S');
+        else if(e.kind === 'double') drawPower(e.x,e.y,e.size,'x2');
+      });
+
+      // draw player (eco hero)
+      drawPlayer(player.x, player.y, player.w, player.h);
+
+      // HUD small indicators over canvas
+      if(slowEffect>0){ ctx.fillStyle='rgba(67,198,172,0.12)'; ctx.fillRect(8,8,120,28); ctx.fillStyle='#b9fff0'; ctx.font='13px Inter'; ctx.fillText('Slow effect active', 16, 26)}
+      if(doublePoints>0){ ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(W-140,8,132,28); ctx.fillStyle='#fffee6'; ctx.font='13px Inter'; ctx.fillText('Double points', W-120, 26)}
+    }
+
+    // DRAW HELPERS
+    function drawPlayer(x,y,w,h){
+      // body
+      ctx.fillStyle='#7ee7c0'; ctx.beginPath(); ctx.roundRect(x, y, w, h, 10); ctx.fill();
+      // face
+      ctx.fillStyle='#052a26'; ctx.beginPath(); ctx.arc(x + w*0.5, y + h*0.34, 8, 0, Math.PI*2); ctx.fill();
+      // water bag on back
+      ctx.fillStyle='rgba(67,198,172,0.18)'; ctx.beginPath(); ctx.ellipse(x + w*0.78, y + h*0.4, 10,14,0,0,Math.PI*2); ctx.fill();
+      // legs shadow
+      ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(x+8,y+h-6,w-16,4);
+    }
+
+    function drawWater(cx,cy,size){
+      // teardrop shape
+      ctx.save(); ctx.translate(cx,cy);
+      ctx.beginPath(); ctx.moveTo(0,-size*0.5); ctx.bezierCurveTo(size*0.6,-size*0.1,size*0.4,size*0.6,0,size); ctx.bezierCurveTo(-size*0.4,size*0.6,-size*0.6,-size*0.1,0,-size*0.5); ctx.closePath();
+      ctx.fillStyle='rgba(67,198,172,0.95)'; ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.stroke();
+      // little shine
+      ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(-size*0.15,-size*0.1,size*0.18,size*0.28,0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawWaste(cx,cy,size){
+      // red leaking bucket or faucet icon
+      ctx.save(); ctx.translate(cx,cy);
+      ctx.fillStyle='rgba(255,107,107,0.96)'; ctx.beginPath(); ctx.roundRect(-size/2,-size/2,size,size,6); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font='14px Inter'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('💧', 0, 0);
+      ctx.restore();
+    }
+
+    function drawPower(cx,cy,size,label){
+      ctx.save(); ctx.translate(cx,cy);
+      ctx.beginPath(); ctx.arc(0,0,size/2,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fill();
+      ctx.fillStyle='#ffd66b'; ctx.font='12px Inter'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(label,0,0);
+      ctx.restore();
+    }
+
+    // polyfill for roundRect
+    if(!CanvasRenderingContext2D.prototype.roundRect){
+      CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+        if(typeof r === 'number') r = {tl:r,tr:r,br:r,bl:r};
+        this.beginPath();
+        this.moveTo(x + r.tl, y);
+        this.lineTo(x + w - r.tr, y);
+        this.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+        this.lineTo(x + w, y + h - r.br);
+        this.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+        this.lineTo(x + r.bl, y + h);
+        this.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+        this.lineTo(x, y + r.tl);
+        this.quadraticCurveTo(x, y, x + r.tl, y);
+        this.closePath();
+      }
+    }
+
+    // INITIAL DRAW SCREEN
+    (function initScreen(){
+      ctx.clearRect(0,0,W,H);
+      ctx.fillStyle='#052033'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='white'; ctx.font='28px Inter'; ctx.textAlign='center'; ctx.fillText('Eco Hero — Water Saver Defender', W/2, 100);
+      ctx.font='16px Inter'; ctx.fillText('Click Start to begin — collect water drops, avoid waste', W/2, 140);
+      ctx.font='13px Inter'; ctx.fillText('Keyboard: ← → • Mobile: Use buttons below the canvas', W/2, 170);
+    })();
+
+  })();
+  </script>
+</body>
+</html>
+
